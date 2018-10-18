@@ -28,3 +28,6 @@ Download the pre-built Unity Package from [releases](https://github.com/Wisc-Onl
 ![Git Init Dialog](docs/git-init.gif)
 
 Now the latest code from the Unity-Lib git repository is added as a Git Submodule.
+
+
+See the [Unity-Lib](https://github.com/Wisc-Online/Unity-Lib) repository for more documentation.
