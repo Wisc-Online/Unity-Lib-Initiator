@@ -10,21 +10,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
 {
     public class LearningInnovationsInitiator
     {
-        [MenuItem("Learning Innovations/Initiator/Git/Download Git")]
-        static void DownloadGit()
-        {
-            if (!IsGitInstalled)
-            {
-                Process.Start("https://git-scm.com/downloads");
 
-            }
-        }
-
-        [MenuItem("Learning Innovations/Initiator/Git/Download Git", true)]
-        static bool ValidateDownloadGit()
-        {
-            return !IsGitInstalled;
-        }
 
         [MenuItem("Learning Innovations/Initiator/Install Unity-Lib")]
         static void InstallUnityLib()
@@ -44,6 +30,76 @@ namespace FVTC.LearningInnovations.Unity.Initiator
                 {
                     AddUnityLibSubmodule();
                 }
+            }
+        }
+
+        static void GitInit()
+        {
+                bool success;
+                using (var process = Git("init"))
+                {
+                    string stdOutLine;
+
+                    try
+                    {
+                        while ((stdOutLine = process.StandardError.ReadLine()) != null)
+                        {
+                            EditorUtility.DisplayProgressBar("git init", stdOutLine, 0f);
+                        }
+                    }
+                    finally
+                    {
+                        EditorUtility.ClearProgressBar();
+                    }
+
+                    process.WaitForExit();
+
+                    success = process.ExitCode == 0;
+                }
+
+            if (success)
+            {
+                const string gitIgnoreUrl = "https://raw.githubusercontent.com/github/gitignore/master/Unity.gitignore";
+
+                var assetsDir = new DirectoryInfo(Application.dataPath);
+
+                if (assetsDir.Exists)
+                {
+                    var projectDir = assetsDir.Parent;
+
+                    if (projectDir.Exists)
+                    {
+                        string gitIgnorePath = System.IO.Path.Combine(projectDir.FullName, ".gitignore");
+
+                        if (!System.IO.File.Exists(gitIgnorePath))
+                        {
+
+                            try
+                            {
+                                EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, 0f);
+
+                                using (WWW www = new WWW(gitIgnoreUrl))
+                                {
+                                    while (!www.isDone)
+                                    {
+                                        EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, www.progress);
+                                        System.Threading.Thread.Sleep(100);
+                                    }
+                                    System.IO.File.WriteAllText(gitIgnorePath, www.text);
+                                }
+
+                            }
+                            finally
+                            {
+                                EditorUtility.ClearProgressBar();
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Git", "Something went wrong when initializing new Git repository", "OK");
             }
         }
 
@@ -129,87 +185,6 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             }
 
             AssetDatabase.Refresh();
-        }
-
-        [MenuItem("Learning Innovations/Initiator/Git/Initialize New Git Repository")]
-        static void GitInit()
-        {
-            if (PromptUserToDownloadGitIfNotInstalled())
-            {
-                bool success;
-                using (var process = Git("init"))
-                {
-                    string stdOutLine;
-
-                    try
-                    {
-                        while ((stdOutLine = process.StandardError.ReadLine()) != null)
-                        {
-                            EditorUtility.DisplayProgressBar("git init", stdOutLine, 0f);
-                        }
-                    }
-                    finally
-                    {
-                        EditorUtility.ClearProgressBar();
-                    }
-
-                    process.WaitForExit();
-
-                    success = process.ExitCode == 0;
-                }
-
-                if (success)
-                {
-                    const string gitIgnoreUrl = "https://raw.githubusercontent.com/github/gitignore/master/Unity.gitignore";
-
-                    var assetsDir = new DirectoryInfo(Application.dataPath);
-
-                    if (assetsDir.Exists)
-                    {
-                        var projectDir = assetsDir.Parent;
-
-                        if (projectDir.Exists)
-                        {
-                            string gitIgnorePath = System.IO.Path.Combine(projectDir.FullName, ".gitignore");
-
-                            if (!System.IO.File.Exists(gitIgnorePath))
-                            {
-
-                                try
-                                {
-                                    EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, 0f);
-
-                                    using (WWW www = new WWW(gitIgnoreUrl))
-                                    {
-                                        while (!www.isDone)
-                                        {
-                                            EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, www.progress);
-                                            System.Threading.Thread.Sleep(100);
-                                        }
-                                        System.IO.File.WriteAllText(gitIgnorePath, www.text);
-                                    }
-
-                                }
-                                finally
-                                {
-                                    EditorUtility.ClearProgressBar();
-                                }
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    EditorUtility.DisplayDialog("Git", "Something went wrong when initializing new Git repository", "OK");
-                }
-            }
-        }
-
-
-        [MenuItem("Learning Innovations/Initiator/Git/Initialize New Git Repository", true)]
-        static bool ValidateGitInit()
-        {
-            return !IsProjectGitRepository;
         }
 
         [MenuItem("Learning Innovations/Initiator/Git/Set Origin", true)]
