@@ -94,8 +94,6 @@ namespace FVTC.LearningInnovations.Unity.Initiator
 
             FileInfo gitModulesFile = new FileInfo(Path.Combine(Directory.GetParent(Application.dataPath).FullName, ".gitmodules"));
 
-            bool enableMenuItem = gitModulesFile.Exists;
-
             if (gitModulesFile.Exists)
             {
                 bool isModule = false;
@@ -110,7 +108,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
 
                     while ((line = reader.ReadLine()) != null)
                     {
-                        if (enableMenuItem && line.StartsWith(subModulePrefix))
+                        if (line.StartsWith(subModulePrefix))
                         {
                             isModule = true;
                         }
@@ -128,8 +126,22 @@ namespace FVTC.LearningInnovations.Unity.Initiator
 
                                         submoduleDirectory = new DirectoryInfo(Path.Combine(Directory.GetParent(Application.dataPath).FullName, lineParts[1]));
 
+                                        if (!submoduleDirectory.Exists)
+                                        {
+                                            // the submodule's directory does not exist yet, it needs initialization
+                                            return true;
+                                        }
+                                        else
+                                        {
+                                            var dotGitFiles = submoduleDirectory.GetFiles(".git");
 
-                                        enableMenuItem = submoduleDirectory.Exists && submoduleDirectory.GetFiles(".git")?.Length == 1;
+                                            if (dotGitFiles == null || dotGitFiles.Length != 1)
+                                            {
+                                                // the submodule's directory exists, but does not contain a .git file
+
+                                                return true;
+                                            }
+                                        }
 
                                         break;
                                     default:
@@ -141,9 +153,8 @@ namespace FVTC.LearningInnovations.Unity.Initiator
                 }
             }
 
-
-
-            return enableMenuItem;
+            // if we get this far then there are either no submodules or all submodules are initialized.
+            return false;
         }
     }
 }
