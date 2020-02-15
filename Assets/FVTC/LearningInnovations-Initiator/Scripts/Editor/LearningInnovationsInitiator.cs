@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,54 +9,32 @@ using UnityEngine;
 
 namespace FVTC.LearningInnovations.Unity.Initiator
 {
-    public class LearningInnovationsInitiator
-    {
 
-
-        [MenuItem("Learning Innovations/Initiator/Install Unity-Lib")]
-        static void InstallUnityLib()
+    public abstract class LearningInnovationsInitator
+    {   
+        protected static void GitInit()
         {
-            if (PromptUserToDownloadGitIfNotInstalled())
+            bool success;
+            using (var process = Git("init"))
             {
-                if (!IsProjectGitRepository)
-                {
-                    if (EditorUtility.DisplayDialog("Initialize new Git Repository?", "It appears that this project is not a Git repository.  Do you want to intialize a new Git repository?", "Yes", "No"))
-                    {
-                        GitInit();
+                string stdOutLine;
 
-                        AddUnityLibSubmodule();
+                try
+                {
+                    while ((stdOutLine = process.StandardError.ReadLine()) != null)
+                    {
+                        EditorUtility.DisplayProgressBar("git init", stdOutLine, 0f);
                     }
                 }
-                else
+                finally
                 {
-                    AddUnityLibSubmodule();
+                    EditorUtility.ClearProgressBar();
                 }
+
+                process.WaitForExit();
+
+                success = process.ExitCode == 0;
             }
-        }
-
-        static void GitInit()
-        {
-                bool success;
-                using (var process = Git("init"))
-                {
-                    string stdOutLine;
-
-                    try
-                    {
-                        while ((stdOutLine = process.StandardError.ReadLine()) != null)
-                        {
-                            EditorUtility.DisplayProgressBar("git init", stdOutLine, 0f);
-                        }
-                    }
-                    finally
-                    {
-                        EditorUtility.ClearProgressBar();
-                    }
-
-                    process.WaitForExit();
-
-                    success = process.ExitCode == 0;
-                }
 
             if (success)
             {
@@ -78,6 +57,8 @@ namespace FVTC.LearningInnovations.Unity.Initiator
                             {
                                 EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, 0f);
 
+
+#if !UNITY_2018_1_OR_NEWER
                                 using (WWW www = new WWW(gitIgnoreUrl))
                                 {
                                     while (!www.isDone)
@@ -87,6 +68,27 @@ namespace FVTC.LearningInnovations.Unity.Initiator
                                     }
                                     System.IO.File.WriteAllText(gitIgnorePath, www.text);
                                 }
+#else
+                                using (UnityEngine.Networking.UnityWebRequest request = UnityEngine.Networking.UnityWebRequest.Get(gitIgnoreUrl))
+                                {
+                                    request.SendWebRequest();
+
+                                    while (!request.isDone)
+                                    {
+                                        EditorUtility.DisplayProgressBar("Creating .gitignore file.", "Downloading .gitignore file from " + gitIgnoreUrl, request.downloadProgress);
+                                        System.Threading.Thread.Sleep(100);
+                                    }
+
+                                    if (request.isNetworkError)
+                                    {
+                                        EditorUtility.DisplayDialog("Download Failed", string.Format("Downloading .gitignore file from {0} failed.", gitIgnoreUrl), "Close");
+                                    }
+                                    else
+                                    {
+                                        File.WriteAllText(gitIgnorePath, request.downloadHandler.text);
+                                    }
+                                }
+#endif
 
                             }
                             finally
@@ -103,15 +105,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             }
         }
 
-        const string UNITY_LIB_MODULE_URL = "https://github.com/Wisc-Online/Unity-Lib.git";
-
-        [MenuItem("Learning Innovations/Initiator/Install Unity-Lib", true)]
-        static bool ValidateInstallUnityLib()
-        {
-            return !IsGitModuleInstalled(UNITY_LIB_MODULE_URL);
-        }
-
-        private static bool IsGitModuleInstalled(string url)
+        protected static bool IsGitModuleInstalled(string url)
         {
             var gitModulesFile = new FileInfo(Path.Combine(Directory.GetParent(Application.dataPath).FullName, ".gitmodules"));
 
@@ -158,12 +152,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             return false;
         }
 
-        static void AddUnityLibSubmodule()
-        {
-            AddGitSubmodule(UNITY_LIB_MODULE_URL, "Assets/FVTC/LearningInnovations");
-        }
-
-        static void AddGitSubmodule(string url, string path)
+        protected static void AddGitSubmodule(string url, string path)
         {
             using (var process = Git(string.Format("submodule add {0} {1}", url, path)))
             {
@@ -187,18 +176,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Learning Innovations/Initiator/Git/Set Origin", true)]
-        static bool ValidateGitSetOrigin()
-        {
-            return IsProjectGitRepository && !GitProjectHasRemote("origin");
-        }
-
-        private static bool GitProjectHasRemote(string remoteName)
-        {
-            return false;
-        }
-
-        static bool PromptUserToDownloadGitIfNotInstalled()
+        protected static bool PromptUserToDownloadGitIfNotInstalled()
         {
             if (!IsGitInstalled)
             {
@@ -213,7 +191,7 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             return true;
         }
 
-        static bool IsGitInstalled
+        protected static bool IsGitInstalled
         {
             get
             {
@@ -221,14 +199,14 @@ namespace FVTC.LearningInnovations.Unity.Initiator
             }
         }
 
-        static string GetExecutablePath(string executableName)
+        protected static string GetExecutablePath(string executableName)
         {
             var exePath = Environment.GetEnvironmentVariable("PATH").Split(';').Select(p => Path.Combine(p, executableName)).Where(p => File.Exists(p)).FirstOrDefault();
 
             return exePath;
         }
 
-        public static bool IsProjectGitRepository
+        protected static bool IsProjectGitRepository
         {
             get
             {
@@ -251,7 +229,6 @@ namespace FVTC.LearningInnovations.Unity.Initiator
                 return false;
             }
         }
-
 
         public static Process Git(string command)
         {
